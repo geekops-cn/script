@@ -1,4 +1,4 @@
-<#
+ <#
 .SYNOPSIS
 Exchange Server 2022 Deployment Script (Supports First/Additional Server)
 Author: System Administrator
@@ -121,23 +121,49 @@ function Install-Prerequisites {
         Remove-WindowsFeature -Name $item -ErrorAction SilentlyContinue | Out-Null
     }
 
+    # =====================================================================
+    # 新?增?功|能¨¹：êo自Á?动¡¥下?载? vcredist 和¨ª URL Rewrite
+    # =====================================================================
+
+    if (-not $ToolsPath -or [string]::IsNullOrWhiteSpace($ToolsPath)) {
+        $ToolsPath = "C:\tools"
+    }
+
     if (-not (Test-Path $ToolsPath)) {
-        Write-Log "Tools path invalid: $ToolsPath" "ERROR"
-        throw "Tools path missing."
+        Write-Log "ToolsPath does not exist. Creating: $ToolsPath" "WARNING"
+        New-Item -ItemType Directory -Path $ToolsPath -Force | Out-Null
     }
 
-    # vcredist
-    $vcredist = Join-Path $ToolsPath "vcredist_x64.exe"
-    if (Test-Path $vcredist) {
+    $vcredistUrl = "https://aka.ms/highdpimfc2013x64chs"
+    $rewriteUrl  = "https://download.microsoft.com/download/1/2/8/128E2E22-C1B9-44A4-BE2A-5859ED1D4592/rewrite_amd64_en-US.msi"
+
+    $vcredistFile = Join-Path $ToolsPath "vcredist_x64.exe"
+    $rewriteFile  = Join-Path $ToolsPath "rewrite_amd64_en-US.msi"
+
+    if (-not (Test-Path $vcredistFile)) {
+        Write-Log "Downloading vcredist..." "WARNING"
+        Invoke-WebRequest -Uri $vcredistUrl -OutFile $vcredistFile -UseBasicParsing
+        Write-Log "vcredist downloaded successfully."
+    }
+
+    if (-not (Test-Path $rewriteFile)) {
+        Write-Log "Downloading URL Rewrite..." "WARNING"
+        Invoke-WebRequest -Uri $rewriteUrl -OutFile $rewriteFile -UseBasicParsing
+        Write-Log "URL Rewrite downloaded successfully."
+    }
+
+    # =====================================================================
+    # 原-有®D逻?辑-：êo安ã2装Á¡ã vcredist / URL Rewrite
+    # =====================================================================
+
+    if (Test-Path $vcredistFile) {
         Write-Log "Installing Visual C++ Redistributable..."
-        Start-Process $vcredist -ArgumentList "/quiet","/norestart" -Wait
+        Start-Process $vcredistFile -ArgumentList "/quiet","/norestart" -Wait
     }
 
-    # URL Rewrite
-    $rewrite = Join-Path $ToolsPath "rewrite_amd64_zh-CN.msi"
-    if (Test-Path $rewrite) {
+    if (Test-Path $rewriteFile) {
         Write-Log "Installing URL Rewrite..."
-        Start-Process "msiexec.exe" -ArgumentList "/i",$rewrite,"/quiet","/norestart" -Wait
+        Start-Process "msiexec.exe" -ArgumentList "/i",$rewriteFile,"/quiet","/norestart" -Wait
     }
 
     Write-Log "Prerequisites installation completed."
@@ -168,6 +194,7 @@ function Run-PrepareAD {
         [string]$IsoPath,
         [string]$OrgName
     )
+
     $setup = Join-Path $IsoPath "Setup.exe"
 
     Write-Log "Extending AD Schema (PrepareAD)..."
@@ -244,7 +271,7 @@ try {
     # Step 5: UCMA
     Install-UCMA -IsoPath $isoPath
 
-    # Step 6: If first server → PrepareAD
+    # Step 6: If first server →¨² PrepareAD
     if ($IsFirstServer) {
         Run-PrepareAD -IsoPath $isoPath -OrgName $OrgName
     }
@@ -258,3 +285,4 @@ try {
     Write-Log "Deployment failed: $_" "ERROR"
     exit 1
 }
+ 
