@@ -78,7 +78,7 @@ configure_docker() {
     log "配置 Docker 镜像加速器..."
     cat > /etc/docker/daemon.json <<EOF
 {
-    "registry-mirrors": ["https://dockerhub.icu"]
+    "registry-mirrors": ["https://docker.1ms.run"]
 }
 EOF
     systemctl daemon-reload
